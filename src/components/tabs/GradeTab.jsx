@@ -13,6 +13,8 @@ const GRADING_CRITERIA = [
 ];
 
 const GradeTab = memo(function GradeTab() {
+  const [studentId, setStudentId] = useState('');
+  const [studentName, setStudentName] = useState('');
   const [pdfText, setPdfText] = useState('');
   const [fileName, setFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -22,6 +24,9 @@ const GradeTab = memo(function GradeTab() {
   const [error, setError] = useState('');
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Check if student info is filled
+  const isStudentInfoComplete = studentId.trim() !== '' && studentName.trim() !== '';
 
   // Extract text from PDF
   const extractTextFromPdf = useCallback(async (file) => {
@@ -167,15 +172,58 @@ ${pdfText.substring(0, 15000)}`;
         </div>
       </div>
 
-      {/* Upload Section */}
+      {/* Student Info Section */}
       <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10">
         <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+          <span className="text-3xl">👤</span> 填寫基本資料
+        </h2>
+        <p className="text-white/60 text-sm mb-6">
+          請先填寫學號與姓名，才能上傳報告進行評分
+        </p>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-white/70 text-sm mb-2">學號 *</label>
+            <input
+              type="text"
+              placeholder="例：D1234567"
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 transition-colors"
+            />
+          </div>
+          <div>
+            <label className="block text-white/70 text-sm mb-2">姓名 *</label>
+            <input
+              type="text"
+              placeholder="例：王小明"
+              value={studentName}
+              onChange={(e) => setStudentName(e.target.value)}
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 transition-colors"
+            />
+          </div>
+        </div>
+        {isStudentInfoComplete && (
+          <div className="mt-4 flex items-center gap-2 text-emerald-400">
+            <span>✓</span>
+            <span className="text-sm">資料填寫完成，可以上傳報告了</span>
+          </div>
+        )}
+      </div>
+
+      {/* Upload Section */}
+      <div className={`bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10 transition-opacity ${!isStudentInfoComplete ? 'opacity-50 pointer-events-none' : ''}`}>
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
           <span className="text-3xl">📄</span> 上傳報告 PDF
+          {!isStudentInfoComplete && <span className="text-sm font-normal text-white/50">（請先填寫基本資料）</span>}
         </h2>
 
         <div
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-white/20 hover:border-purple-500/50 rounded-2xl p-10 text-center cursor-pointer transition-all hover:bg-white/5"
+          onClick={() => isStudentInfoComplete && fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-2xl p-10 text-center transition-all ${
+            isStudentInfoComplete
+              ? 'border-white/20 hover:border-purple-500/50 cursor-pointer hover:bg-white/5'
+              : 'border-white/10 cursor-not-allowed'
+          }`}
         >
           <input
             ref={fileInputRef}
@@ -183,6 +231,7 @@ ${pdfText.substring(0, 15000)}`;
             accept=".pdf"
             onChange={handleFileChange}
             className="hidden"
+            disabled={!isStudentInfoComplete}
           />
           {isLoading ? (
             <div className="text-white/60">
@@ -287,9 +336,14 @@ ${pdfText.substring(0, 15000)}`;
       {scores && (
         <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <span className="text-3xl">📊</span> AI 評分結果
-            </h2>
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-3">
+                <span className="text-3xl">📊</span> AI 評分結果
+              </h2>
+              <p className="text-white/60 text-sm mt-1">
+                學號：{studentId} ｜ 姓名：{studentName}
+              </p>
+            </div>
             <div className="text-right">
               <div className="text-4xl font-black bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 {scores.total} 分
