@@ -8,11 +8,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLi
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
 const GRADING_CRITERIA = [
-  { id: 'background', name: '議題背景', weight: 15, description: '議題說明清楚、有時事佐證' },
-  { id: 'concepts', name: '經濟概念應用', weight: 35, description: '正確使用至少 2 章概念分析' },
-  { id: 'charts', name: '圖表分析', weight: 15, description: '圖表正確、說明清楚' },
-  { id: 'conclusion', name: '結論與建議', weight: 15, description: '有自己觀點、邏輯合理' },
-  { id: 'reflection', name: 'AI 使用反思', weight: 20, description: '說明工具使用、有批判思考' },
+  { id: 'background', name: '議題背景', weight: 15, icon: '📝', description: '議題說明清楚、有時事佐證' },
+  { id: 'concepts', name: '經濟概念應用', weight: 35, icon: '📚', description: '正確使用至少 2 章概念分析' },
+  { id: 'charts', name: '圖表分析', weight: 15, icon: '📈', description: '圖表正確、說明清楚' },
+  { id: 'conclusion', name: '結論與建議', weight: 15, icon: '💡', description: '有自己觀點、邏輯合理' },
+  { id: 'reflection', name: 'AI 使用反思', weight: 20, icon: '🤖', description: '說明工具使用、有批判思考' },
 ];
 
 const GradeTab = memo(function GradeTab() {
@@ -275,89 +275,134 @@ ${text.substring(0, 15000)}`;
       {/* Scores Display */}
       {scores && (
         <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10">
-          <div className="flex items-center justify-between mb-6">
+          {/* Header with Total Score */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
             <div>
               <h2 className="text-2xl font-bold flex items-center gap-3">
                 <span className="text-3xl">📊</span> AI 評分結果
               </h2>
-              <p className="text-white/60 text-sm mt-1">
-                學號：{studentId} ｜ 姓名：{studentName}
+              <p className="text-white/60 text-sm mt-2">
+                <span className="inline-block bg-white/10 px-3 py-1 rounded-lg mr-2">學號：{studentId}</span>
+                <span className="inline-block bg-white/10 px-3 py-1 rounded-lg">姓名：{studentName}</span>
               </p>
             </div>
-            <div className="text-right">
-              <div className="text-4xl font-black bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <div className="text-center md:text-right">
+              <div className="text-5xl font-black bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 {scores.total} 分
               </div>
-              <p className="text-xs text-white/40">滿分 100 分</p>
+              <p className="text-xs text-white/40 mt-1">滿分 100 分</p>
             </div>
           </div>
 
           {/* Disclaimer */}
-          <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-sm">
-            ⚠️ 提醒：此為 AI 預估分數，僅供自我檢視參考，最終成績以老師評分為準。
+          <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-sm flex items-start gap-3">
+            <span className="text-xl">⚠️</span>
+            <span>提醒：此為 AI 預估分數，僅供自我檢視參考，最終成績以老師評分為準。</span>
           </div>
 
-          {/* Individual Scores */}
-          <div className="space-y-4">
-            {GRADING_CRITERIA.map((criterion) => {
-              const result = scores[criterion.id];
-              if (!result) return null;
-              const percentage = (result.score / criterion.weight) * 100;
+          {/* Scores Table */}
+          <div className="mb-6">
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <span>🎯</span> 各項評分明細
+            </h3>
 
-              return (
-                <div key={criterion.id} className="p-5 bg-white/5 rounded-2xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <span className="font-bold">{criterion.name}</span>
-                      <span className="text-white/40 text-sm ml-2">（{criterion.weight}%）</span>
+            {/* Table Header */}
+            <div className="hidden md:grid md:grid-cols-12 gap-4 p-4 bg-white/10 rounded-t-xl text-sm font-bold text-white/80">
+              <div className="col-span-4">評分項目</div>
+              <div className="col-span-2 text-center">得分</div>
+              <div className="col-span-6">評語</div>
+            </div>
+
+            {/* Table Rows */}
+            <div className="divide-y divide-white/10 border border-white/10 md:border-t-0 rounded-xl md:rounded-t-none overflow-hidden">
+              {GRADING_CRITERIA.map((criterion, index) => {
+                const result = scores[criterion.id];
+                if (!result) return null;
+                const percentage = (result.score / criterion.weight) * 100;
+                const scoreColor = percentage >= 80 ? 'text-emerald-400' :
+                                   percentage >= 60 ? 'text-amber-400' : 'text-red-400';
+                const bgColor = percentage >= 80 ? 'bg-emerald-500' :
+                                percentage >= 60 ? 'bg-amber-500' : 'bg-red-500';
+
+                return (
+                  <div key={criterion.id} className={`p-4 ${index % 2 === 0 ? 'bg-white/5' : 'bg-white/[0.02]'}`}>
+                    {/* Mobile Layout */}
+                    <div className="md:hidden space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{criterion.icon}</span>
+                          <span className="font-bold">{criterion.name}</span>
+                          <span className="text-white/40 text-xs">({criterion.weight}%)</span>
+                        </div>
+                        <span className={`text-lg font-bold ${scoreColor}`}>
+                          {result.score}/{criterion.weight}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${bgColor}`} style={{ width: `${percentage}%` }} />
+                      </div>
+                      <p className="text-sm text-white/60">{result.comment}</p>
                     </div>
-                    <span className={`text-xl font-bold ${
-                      percentage >= 80 ? 'text-emerald-400' :
-                      percentage >= 60 ? 'text-amber-400' : 'text-red-400'
-                    }`}>
-                      {result.score} / {criterion.weight}
-                    </span>
+
+                    {/* Desktop Layout */}
+                    <div className="hidden md:grid md:grid-cols-12 gap-4 items-start">
+                      <div className="col-span-4 flex items-center gap-3">
+                        <span className="text-2xl">{criterion.icon}</span>
+                        <div>
+                          <span className="font-bold">{criterion.name}</span>
+                          <span className="text-white/40 text-sm ml-2">({criterion.weight}%)</span>
+                          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mt-2 w-24">
+                            <div className={`h-full rounded-full ${bgColor}`} style={{ width: `${percentage}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-span-2 text-center">
+                        <span className={`text-xl font-bold ${scoreColor}`}>
+                          {result.score}
+                        </span>
+                        <span className="text-white/40 text-sm">/{criterion.weight}</span>
+                      </div>
+                      <div className="col-span-6 text-sm text-white/70">
+                        {result.comment}
+                      </div>
+                    </div>
                   </div>
-                  {/* Progress bar */}
-                  <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-3">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        percentage >= 80 ? 'bg-emerald-500' :
-                        percentage >= 60 ? 'bg-amber-500' : 'bg-red-500'
-                      }`}
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                  <p className="text-sm text-white/60">{result.comment}</p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           {/* Overall Comment */}
           {scores.overall && (
-            <div className="mt-6 p-5 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl border border-purple-500/20">
-              <h3 className="font-bold mb-2 flex items-center gap-2">
-                <span>💬</span> 整體評語
+            <div className="mb-6 p-6 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl border border-purple-500/30">
+              <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                <span className="text-2xl">💬</span> 整體評語與改進建議
               </h3>
-              <p className="text-white/80 leading-relaxed">{scores.overall}</p>
+              <div className="text-white/90 leading-relaxed whitespace-pre-line">
+                {scores.overall}
+              </div>
             </div>
           )}
 
           {/* Text Preview */}
-          <details className="mt-6">
-            <summary className="cursor-pointer text-white/60 hover:text-white transition-colors">
-              📖 查看擷取的報告內容（前 2000 字）
+          <details className="mb-6 group">
+            <summary className="cursor-pointer text-white/60 hover:text-white transition-colors flex items-center gap-2 p-4 bg-white/5 rounded-xl hover:bg-white/10">
+              <span>📖</span>
+              <span>查看擷取的報告內容（前 2000 字）</span>
+              <span className="ml-auto transform group-open:rotate-180 transition-transform">▼</span>
             </summary>
-            <div className="mt-3 p-4 bg-white/5 rounded-xl text-sm text-white/70 max-h-60 overflow-y-auto">
-              {pdfText.substring(0, 2000)}...
+            <div className="mt-2 p-4 bg-white/5 rounded-xl text-sm text-white/70 max-h-60 overflow-y-auto border border-white/10">
+              <pre className="whitespace-pre-wrap font-sans">{pdfText.substring(0, 2000)}...</pre>
             </div>
           </details>
 
           {/* Final Reminder */}
-          <div className="mt-6 text-center">
-            <p className="text-white/40 text-sm">
+          <div className="text-center p-4 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-xl border border-white/10">
+            <p className="text-white/70 text-sm">
               🎓 記得根據 AI 建議修改後再繳交，並保持自己的觀點！
+            </p>
+            <p className="text-amber-300 text-sm mt-2 font-medium">
+              📤 完成後請將 PDF 上傳至<strong>創課系統</strong>繳交
             </p>
           </div>
         </div>
