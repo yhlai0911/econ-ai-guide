@@ -11,6 +11,7 @@ import QuestTab from './components/tabs/QuestTab';
 import MapTab from './components/tabs/MapTab';
 import GearTab from './components/tabs/GearTab';
 import BossTab from './components/tabs/BossTab';
+import GradeTab from './components/tabs/GradeTab';
 import SampleTab from './components/tabs/SampleTab';
 import NpcTab from './components/tabs/NpcTab';
 
@@ -52,6 +53,8 @@ function App() {
         return <GearTab />;
       case 'boss':
         return <BossTab />;
+      case 'grade':
+        return <GradeTab />;
       case 'sample':
         return <SampleTab />;
       case 'npc':
