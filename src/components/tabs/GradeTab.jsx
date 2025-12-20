@@ -170,6 +170,10 @@ ${text.substring(0, 15000)}`;
               此功能為 <strong>AI 嘗試評分</strong>，僅供參考，<strong>並非最終成績</strong>。
               最終分數以老師批改為準。AI 可能有誤判，請勿過度依賴。
             </p>
+            <p className="text-white/80 mt-2 flex items-center gap-2">
+              <span className="text-amber-300">📤</span>
+              <span>完成報告後，請記得將 PDF 上傳至<strong className="text-amber-300">創課系統</strong>繳交！</span>
+            </p>
           </div>
         </div>
       </div>
