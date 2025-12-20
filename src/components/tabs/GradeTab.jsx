@@ -1,8 +1,8 @@
 import { memo, useState, useCallback, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set worker source
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set worker source - use unpkg for reliable CDN
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 const GRADING_CRITERIA = [
   { id: 'background', name: '議題背景', weight: 15, description: '議題說明清楚、有時事佐證' },
