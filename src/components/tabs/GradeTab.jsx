@@ -1,8 +1,11 @@
-import { memo, useState, useCallback, useRef } from 'react';
+import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Set worker source - use unpkg for reliable CDN
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
+// API Key from environment variable
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
 const GRADING_CRITERIA = [
   { id: 'background', name: '議題背景', weight: 15, description: '議題說明清楚、有時事佐證' },
@@ -19,62 +22,15 @@ const GradeTab = memo(function GradeTab() {
   const [fileName, setFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGrading, setIsGrading] = useState(false);
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
   const [scores, setScores] = useState(null);
   const [error, setError] = useState('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const fileInputRef = useRef(null);
 
   // Check if student info is filled
   const isStudentInfoComplete = studentId.trim() !== '' && studentName.trim() !== '';
 
-  // Extract text from PDF
-  const extractTextFromPdf = useCallback(async (file) => {
-    setIsLoading(true);
-    setError('');
-    setPdfText('');
-    setScores(null);
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let fullText = '';
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n\n';
-      }
-
-      setPdfText(fullText.trim());
-      setFileName(file.name);
-    } catch (err) {
-      setError('無法讀取 PDF 檔案，請確認檔案格式正確');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Handle file upload
-  const handleFileChange = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      extractTextFromPdf(file);
-    } else if (file) {
-      setError('請上傳 PDF 格式的檔案');
-    }
-  }, [extractTextFromPdf]);
-
-  // Save API key
-  const handleSaveApiKey = useCallback((key) => {
-    setApiKey(key);
-    localStorage.setItem('gemini_api_key', key);
-  }, []);
-
   // Generate grading prompt
-  const generatePrompt = useCallback(() => {
+  const generatePrompt = useCallback((text) => {
     return `你是一位大學經濟學教授，請根據以下評分標準評閱學生的期末報告。
 
 ## 評分標準（滿分 100 分）：
@@ -96,14 +52,13 @@ const GradeTab = memo(function GradeTab() {
 }
 
 ## 學生報告內容：
-${pdfText.substring(0, 15000)}`;
-  }, [pdfText]);
+${text.substring(0, 15000)}`;
+  }, []);
 
-  // Grade with Gemini API
-  const gradeWithApi = useCallback(async () => {
-    if (!apiKey) {
-      setError('請先輸入 Gemini API Key');
-      setShowApiKeyInput(true);
+  // Grade with OpenAI GPT-4.1-mini API
+  const gradeWithApi = useCallback(async (text) => {
+    if (!OPENAI_API_KEY) {
+      setError('系統設定錯誤：未設定 API Key，請聯繫管理員');
       return;
     }
 
@@ -111,20 +66,28 @@ ${pdfText.substring(0, 15000)}`;
     setError('');
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: generatePrompt() }] }],
-            generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 2048,
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1-mini',
+          messages: [
+            {
+              role: 'system',
+              content: '你是一位專業的大學經濟學教授，負責評閱學生的期末報告。請嚴格按照評分標準給分，並提供具體的評語和改進建議。回覆必須是有效的 JSON 格式。'
             },
-          }),
-        }
-      );
+            {
+              role: 'user',
+              content: generatePrompt(text)
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 2048,
+        }),
+      });
 
       const data = await response.json();
 
@@ -132,10 +95,10 @@ ${pdfText.substring(0, 15000)}`;
         throw new Error(data.error.message || 'API 錯誤');
       }
 
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const content = data.choices?.[0]?.message?.content || '';
 
       // Extract JSON from response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const result = JSON.parse(jsonMatch[0]);
         setScores(result);
@@ -148,13 +111,52 @@ ${pdfText.substring(0, 15000)}`;
     } finally {
       setIsGrading(false);
     }
-  }, [apiKey, generatePrompt]);
-
-  // Copy prompt to clipboard
-  const copyPrompt = useCallback(() => {
-    navigator.clipboard.writeText(generatePrompt());
-    alert('已複製！請貼到 Gemini 或 ChatGPT 進行評分');
   }, [generatePrompt]);
+
+  // Extract text from PDF and auto-grade
+  const extractTextFromPdf = useCallback(async (file) => {
+    setIsLoading(true);
+    setError('');
+    setPdfText('');
+    setScores(null);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n\n';
+      }
+
+      const extractedText = fullText.trim();
+      setPdfText(extractedText);
+      setFileName(file.name);
+      setIsLoading(false);
+
+      // Auto-grade after PDF extraction
+      if (extractedText) {
+        gradeWithApi(extractedText);
+      }
+    } catch (err) {
+      setError('無法讀取 PDF 檔案，請確認檔案格式正確');
+      console.error(err);
+      setIsLoading(false);
+    }
+  }, [gradeWithApi]);
+
+  // Handle file upload
+  const handleFileChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      extractTextFromPdf(file);
+    } else if (file) {
+      setError('請上傳 PDF 格式的檔案');
+    }
+  }, [extractTextFromPdf]);
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -218,9 +220,9 @@ ${pdfText.substring(0, 15000)}`;
         </h2>
 
         <div
-          onClick={() => isStudentInfoComplete && fileInputRef.current?.click()}
+          onClick={() => isStudentInfoComplete && !isLoading && !isGrading && fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-2xl p-10 text-center transition-all ${
-            isStudentInfoComplete
+            isStudentInfoComplete && !isLoading && !isGrading
               ? 'border-white/20 hover:border-purple-500/50 cursor-pointer hover:bg-white/5'
               : 'border-white/10 cursor-not-allowed'
           }`}
@@ -231,12 +233,18 @@ ${pdfText.substring(0, 15000)}`;
             accept=".pdf"
             onChange={handleFileChange}
             className="hidden"
-            disabled={!isStudentInfoComplete}
+            disabled={!isStudentInfoComplete || isLoading || isGrading}
           />
           {isLoading ? (
             <div className="text-white/60">
               <div className="text-4xl mb-3 animate-spin">⏳</div>
               <p>讀取 PDF 中...</p>
+            </div>
+          ) : isGrading ? (
+            <div className="text-purple-400">
+              <div className="text-4xl mb-3 animate-pulse">🤖</div>
+              <p className="font-bold">AI 評分中...</p>
+              <p className="text-sm text-white/50 mt-1">請稍候，約需 10-20 秒</p>
             </div>
           ) : fileName ? (
             <div className="text-emerald-400">
@@ -247,8 +255,8 @@ ${pdfText.substring(0, 15000)}`;
           ) : (
             <div className="text-white/60">
               <div className="text-4xl mb-3">📤</div>
-              <p className="font-medium">點擊或拖曳上傳 PDF 檔案</p>
-              <p className="text-sm mt-1">支援 .pdf 格式</p>
+              <p className="font-medium">點擊上傳 PDF 檔案</p>
+              <p className="text-sm mt-1">上傳後將自動進行 AI 評分</p>
             </div>
           )}
         </div>
@@ -259,78 +267,6 @@ ${pdfText.substring(0, 15000)}`;
           </div>
         )}
       </div>
-
-      {/* Grading Options */}
-      {pdfText && (
-        <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-            <span className="text-3xl">🎯</span> 開始評分
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Auto Grade */}
-            <div className="p-6 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl border border-purple-500/30">
-              <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-                <span>🤖</span> 自動評分
-              </h3>
-              <p className="text-white/60 text-sm mb-4">
-                使用 Gemini API 自動分析並評分（需要 API Key）
-              </p>
-
-              {showApiKeyInput && (
-                <div className="mb-4">
-                  <input
-                    type="password"
-                    placeholder="輸入 Gemini API Key"
-                    value={apiKey}
-                    onChange={(e) => handleSaveApiKey(e.target.value)}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-purple-500"
-                  />
-                  <p className="text-xs text-white/40 mt-1">
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">
-                      取得免費 API Key →
-                    </a>
-                  </p>
-                </div>
-              )}
-
-              <button
-                onClick={() => apiKey ? gradeWithApi() : setShowApiKeyInput(true)}
-                disabled={isGrading}
-                className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 disabled:opacity-50 rounded-xl font-bold transition-all"
-              >
-                {isGrading ? '⏳ 評分中...' : apiKey ? '🚀 開始自動評分' : '🔑 設定 API Key'}
-              </button>
-            </div>
-
-            {/* Manual Grade */}
-            <div className="p-6 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl border border-cyan-500/30">
-              <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-                <span>📋</span> 手動評分
-              </h3>
-              <p className="text-white/60 text-sm mb-4">
-                複製評分提示詞，貼到 Gemini 或 ChatGPT 手動評分
-              </p>
-              <button
-                onClick={copyPrompt}
-                className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:opacity-90 rounded-xl font-bold transition-all"
-              >
-                📋 複製評分提示詞
-              </button>
-            </div>
-          </div>
-
-          {/* Text Preview */}
-          <details className="mt-6">
-            <summary className="cursor-pointer text-white/60 hover:text-white transition-colors">
-              📖 查看擷取的報告內容（前 2000 字）
-            </summary>
-            <div className="mt-3 p-4 bg-white/5 rounded-xl text-sm text-white/70 max-h-60 overflow-y-auto">
-              {pdfText.substring(0, 2000)}...
-            </div>
-          </details>
-        </div>
-      )}
 
       {/* Scores Display */}
       {scores && (
@@ -403,6 +339,16 @@ ${pdfText.substring(0, 15000)}`;
               <p className="text-white/80 leading-relaxed">{scores.overall}</p>
             </div>
           )}
+
+          {/* Text Preview */}
+          <details className="mt-6">
+            <summary className="cursor-pointer text-white/60 hover:text-white transition-colors">
+              📖 查看擷取的報告內容（前 2000 字）
+            </summary>
+            <div className="mt-3 p-4 bg-white/5 rounded-xl text-sm text-white/70 max-h-60 overflow-y-auto">
+              {pdfText.substring(0, 2000)}...
+            </div>
+          </details>
 
           {/* Final Reminder */}
           <div className="mt-6 text-center">
