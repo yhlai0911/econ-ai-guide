@@ -31,7 +31,7 @@ const Header = memo(function Header({ completedTasks }) {
           </div>
         </div>
         <h1 className="text-4xl md:text-6xl font-black mb-4 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight">
-          AI 學習冒險指南
+          經濟學 AI 學習冒險指南
         </h1>
         <p className="text-lg text-white/70 max-w-2xl mx-auto">
           兩週時間，運用 Google AI 工具完成經濟議題分析報告 🚀
