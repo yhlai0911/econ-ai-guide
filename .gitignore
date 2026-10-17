@@ -33,3 +33,7 @@ lerna-debug.log*
 .env
 .env.*
 !.env.example
+
+# Keep local environment variants out of source control.
+.env.*
+!.env.example

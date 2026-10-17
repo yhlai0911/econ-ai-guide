@@ -73,7 +73,7 @@ export const navTabs = [
   { id: 'map', label: '🗺️ 冒險地圖', subtitle: '每日進度' },
   { id: 'gear', label: '⚔️ 裝備指南', subtitle: '工具教學' },
   { id: 'boss', label: '🏆 通關條件', subtitle: '評分標準' },
-  { id: 'grade', label: '🤖 AI 評分', subtitle: '上傳報告' },
+  { id: 'grade', label: '🤖 AI 評分', subtitle: '暫停評分・查看標準' },
   { id: 'sample', label: '📖 攻略範本', subtitle: '報告範例' },
   { id: 'npc', label: '💬 NPC 問答', subtitle: '常見問題' },
 ];

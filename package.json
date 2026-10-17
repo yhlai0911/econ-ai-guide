@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test",
+    "security:check-build": "node scripts/check-client-build.mjs"
   },
   "dependencies": {
     "pdfjs-dist": "^5.4.449",
